@@ -19,7 +19,7 @@ on:
           - lede-master
           - immortalwrt-master
           - Lienol-master
-
+      
 env:
   FEEDS_CONF: config/${{ inputs.source_branch }}/feeds.conf.default
   CONFIG_FILE: config/${{ inputs.source_branch }}/config
@@ -36,38 +36,80 @@ jobs:
     if: ${{ github.event.repository.owner.id }} == ${{ github.event.sender.id }}
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@main
 
-      - name: Setup Environment
-        uses: actions/setup-node@v3
-
-      - name: Install Dependencies
+      - name: Initialization environment
+        id: init
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential libncurses5-dev zlib1g-dev gawk git gettext libssl-dev xsltproc rsync wget unzip python3
+          docker rmi `docker images -q`
+          [[ -n "${AGENT_TOOLSDIRECTORY}" ]] && sudo rm -rf "${AGENT_TOOLSDIRECTORY}"
+          sudo rm -rf /usr/share/dotnet /etc/apt/sources.list.d /usr/local/lib/android 2>/dev/null
+          sudo -E apt-get -y update
+          sudo -E apt-get -y purge azure-cli ghc* zulu* llvm* firefox google* dotnet* powershell openjdk* mongodb* moby* || true
+          sudo -E apt-get -y install $(curl -fsSL https://is.gd/depend_ubuntu2204_openwrt)
+          sudo -E systemctl daemon-reload
+          #sudo -E apt-get -y full-upgrade
+          sudo -E apt-get -y autoremove --purge
+          sudo -E apt-get clean
+          sudo mkdir -p /workdir
+          sudo chown ${USER}:${GROUPS} /workdir
+          sudo timedatectl set-timezone "${TZ}"
+          echo "status=success" >> ${GITHUB_OUTPUT}
 
-      - name: Clone Source Code
+      - name: Clone source code [ ${{ inputs.source_branch }} ]
+        id: codes
+        working-directory: /workdir
+        if: ${{ steps.init.outputs.status }} == 'success' && !cancelled()
         run: |
-          # Clone the appropriate repository based on user input
           # Set up compilation source code
-          # Set output information
-          echo "status=success" >> $GITHUB_ENV
+          if [[ "${{ inputs.source_branch }}" == *"openwrt"* ]]; then
+              REPO_URL="https://github.com/openwrt/openwrt"
+              REPO_BRANCH="main"
+              TAGS_NAME="official"
+          elif [[ "${{ inputs.source_branch }}" == *"lede"* ]]; then
+              REPO_URL="https://github.com/coolsnowwolf/lede"
+              REPO_BRANCH="master"
+              TAGS_NAME="lede"
+          elif [[ "${{ inputs.source_branch }}" == *"immortalwrt"* ]]; then
+              REPO_URL="https://github.com/immortalwrt/immortalwrt"
+              REPO_BRANCH="master"
+              TAGS_NAME="immortalwrt"
+          elif [[ "${{ inputs.source_branch }}" == *"Lienol"* ]]; then
+              REPO_URL="https://github.com/Lienol/openwrt"
+              REPO_BRANCH="22.03"
+              TAGS_NAME="Lienol"
+          else
+              echo "Unknown source code repository."
+              exit 1
+          fi
 
-      - name: Load Custom Feeds
+          # Clone source code
+          git clone -q --single-branch --depth=1 --branch=${REPO_BRANCH} ${REPO_URL} openwrt
+          ln -sf /workdir/openwrt ${GITHUB_WORKSPACE}/openwrt
+
+          # Set output information
+          echo "build_tag=OpenWrt_${TAGS_NAME}_${{ inputs.openwrt_storage }}_$(date +"%Y.%m")" >> ${GITHUB_OUTPUT}
+          echo -e "REPO_URL: [ ${REPO_URL} ]\nREPO_BRANCH: [ ${REPO_BRANCH} ]\nTAGS_NAME: [ ${TAGS_NAME} ]"
+          df -hT ${PWD}
+          echo "status=success" >> ${GITHUB_OUTPUT}
+
+      - name: Load custom feeds
         run: |
           [[ -f "${FEEDS_CONF}" ]] && cp -f ${FEEDS_CONF} openwrt/feeds.conf.default
           chmod +x ${DIY_P1_SH}
           cd openwrt/
           ${GITHUB_WORKSPACE}/${DIY_P1_SH}
 
-      - name: Update and Install Feeds
-        run: |
-          cd openwrt/
-          ./scripts/feeds update -a
-          ./scripts/feeds install -a
+      - name: Update feeds
+        run: cd openwrt/ && ./scripts/feeds update -a
 
-      - name: Load Custom Configuration
+      - name: Install feeds
+        run: cd openwrt/ && ./scripts/feeds install -a
+
+      - name: Load custom configuration
         run: |
           [[ -d "files" ]] && mv -f files openwrt/files
           [[ -e "${CONFIG_FILE}" ]] && cp -f ${CONFIG_FILE} openwrt/.config
@@ -75,7 +117,8 @@ jobs:
           cd openwrt/
           ${GITHUB_WORKSPACE}/${DIY_P2_SH}
 
-      - name: Download Packages
+      - name: Download package
+        id: package
         run: |
           cd openwrt/
           make defconfig
@@ -83,49 +126,78 @@ jobs:
           find dl -size -1024c -exec ls -l {} \;
           find dl -size -1024c -exec rm -f {} \;
 
-      - name: Compile OpenWrt
+      - name: Compile the OpenWrt
+        id: compile
         run: |
           cd openwrt/
           echo -e "$(nproc) thread compile"
           make -j$(($(nproc) + 1)) V=s || make -j1 || make -j1 V=s
-          echo "status=success" >> $GITHUB_ENV
+          echo "status=success" >> ${GITHUB_OUTPUT}
 
-      - name: Check Space Usage
+
+      - name: Check space usage
+        if: (!cancelled())
         run: df -hT
 
-      - name: Upload Bin Directory
+      - name: Upload bin directory
+        uses: actions/upload-artifact@main
         if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
-        uses: actions/upload-artifact@v2
         with:
-          name: OpenWrt_bin_${{ inputs.source_branch }}_$(date +"%Y%m%d")
+          name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
           path: openwrt/bin
 
-      - name: Organize Files
-        if: env.UPLOAD_FIRMWARE == 'true'
+      - name: Organize files
+        id: organize
+        if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
         run: |
           cd openwrt/bin/targets/*/*
           rm -rf packages
           echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+          echo "::set-output name=status::success"
 
-      - name: Upload Firmware Directory
-        if: env.UPLOAD_FIRMWARE == 'true'
-        uses: actions/upload-artifact@v2
+      - name: Upload firmware directory
+        uses: actions/upload-artifact@main
+        if: steps.organize.outputs.status == 'success' && !cancelled()
         with:
-          name: OpenWrt_firmware_${{ inputs.source_branch }}_$(date +"%Y%m%d")
+          name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
           path: ${{ env.FIRMWARE }}
 
-      - name: Generate Release Tag
-        if: env.UPLOAD_RELEASE == 'true'
+      - name: Generate release tag
+        id: tag
+        if: env.UPLOAD_RELEASE == 'true' && !cancelled()
         run: |
-          echo "::set-output name=release_tag::$(date +"%Y%m%d-%H%M")"
+          echo "::set-output name=release_tag::$(date +"%Y.%m.%d-%H%M")"
           touch release.txt
-          echo "🔗 [Cowtransfer](URL)" >> release.txt
-          echo "🔗 [WeTransfer](URL)" >> release.txt
+          [ $UPLOAD_COWTRANSFER = true ] && echo "🔗 [Cowtransfer](${{ steps.cowtransfer.outputs.url }})" >> release.txt
+          [ $UPLOAD_WETRANSFER = true ] && echo "🔗 [WeTransfer](${{ steps.wetransfer.outputs.url }})" >> release.txt
+          echo "::set-output name=status::success"
 
-      - name: Upload Firmware to Release
-        if: env.UPLOAD_RELEASE == 'true'
+      - name: Upload firmware to release
         uses: softprops/action-gh-release@v1
+        if: steps.tag.outputs.status == 'success' && !cancelled()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.tag.outputs.release_tag }}
           body_path: release.txt
           files: ${{ env.FIRMWARE }}/*
+
+      - name: Delete workflow runs
+        uses: GitRML/delete-workflow-runs@main
+        with:
+          retain_days: 1
+          keep_minimum_runs: 3
+          token: ${{ secrets.GH_TOKEN }}
+          body: |
+
+            ### OpenWrt Image information
+            - Default IP: 192.168.1.1
+            - Default username: root
+            - Default password: password
+            - Default WIFI name: OpenWrt
+            - Default WIFI password: none
+            ### Install to EMMC
+            - Login to OpenWrt → System → Amlogic Service → Install OpenWrt
+            ### OpenWrt Image Verification
+            - sha256sum
+    

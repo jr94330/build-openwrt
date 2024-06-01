@@ -42,41 +42,41 @@ echo "src-git liuran001 https://github.com/liuran001/openwrt-packages" >> feeds.
 
 # ------------------------------- Install luci applications -------------------------------
 # Install luci applications
-./scripts/feeds install luci-app-accesscontrol
-./scripts/feeds install luci-app-bird1-ipv4
-./scripts/feeds install luci-app-bird1-ipv6
-./scripts/feeds install luci-app-arpbind
-./scripts/feeds install luci-app-autoreboot
-./scripts/feeds install luci-app-ddns
-./scripts/feeds install luci-app-ddns-go
-./scripts/feeds install luci-app-filetransfer
-./scripts/feeds install luci-app-firewall
-./scripts/feeds install luci-app-mwan3
-./scripts/feeds install luci-app-nlbwmon
-./scripts/feeds install luci-app-samba
-./scripts/feeds install luci-app-samba4
-./scripts/feeds install luci-app-ssr-plus
-./scripts/feeds install luci-app-syncdial
-./scripts/feeds install luci-app-turboacc
-./scripts/feeds install luci-app-upnp
-./scripts/feeds install luci-app-usb-printer
-./scripts/feeds install luci-app-vlmcsd
-./scripts/feeds install luci-app-vsftpd
-./scripts/feeds install luci-app-wol
-./scripts/feeds install luci-app-clash
-./scripts/feeds install luci-app-ramfree
-./scripts/feeds install luci-app-easymesh
-./scripts/feeds install luci-app-argon-config
-./scripts/feeds install luci-app-attendedsysupgrade
-./scripts/feeds install luci-app-docker
-./scripts/feeds install luci-app-fileassistant
-./scripts/feeds install luci-app-aria2
-./scripts/feeds install luci-app-passwall
-./scripts/feeds install luci-app-unblockmusic
-./scripts/feeds install luci-app-webadmin
-./scripts/feeds install luci-app-uhttpd
-./scripts/feeds install luci-app-update
-./scripts/feeds install luci-app-minidlna
+#./scripts/feeds install luci-app-accesscontrol
+#./scripts/feeds install luci-app-bird1-ipv4
+#./scripts/feeds install luci-app-bird1-ipv6
+#./scripts/feeds install luci-app-arpbind
+#./scripts/feeds install luci-app-autoreboot
+#./scripts/feeds install luci-app-ddns
+#./scripts/feeds install luci-app-ddns-go
+#./scripts/feeds install luci-app-filetransfer
+#./scripts/feeds install luci-app-firewall
+#./scripts/feeds install luci-app-mwan3
+#./scripts/feeds install luci-app-nlbwmon
+#./scripts/feeds install luci-app-samba
+#./scripts/feeds install luci-app-samba4
+#./scripts/feeds install luci-app-ssr-plus
+#./scripts/feeds install luci-app-syncdial
+#./scripts/feeds install luci-app-turboacc
+#./scripts/feeds install luci-app-upnp
+#./scripts/feeds install luci-app-usb-printer
+#./scripts/feeds install luci-app-vlmcsd
+#./scripts/feeds install luci-app-vsftpd
+#./scripts/feeds install luci-app-wol
+#./scripts/feeds install luci-app-clash
+#./scripts/feeds install luci-app-ramfree
+#./scripts/feeds install luci-app-easymesh
+#./scripts/feeds install luci-app-argon-config
+#./scripts/feeds install luci-app-attendedsysupgrade
+#./scripts/feeds install luci-app-docker
+#./scripts/feeds install luci-app-fileassistant
+#./scripts/feeds install luci-app-aria2
+#./scripts/feeds install luci-app-passwall
+#./scripts/feeds install luci-app-unblockmusic
+#./scripts/feeds install luci-app-webadmin
+#./scripts/feeds install luci-app-uhttpd
+#./scripts/feeds install luci-app-update
+#./scripts/feeds install luci-app-minidlna
 # ------------------------------- Install luci applications ends -------------------------------
 
 # ------------------------------- Other started -------------------------------
